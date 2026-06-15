@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyfarm-core"
+version = "0.1.0"
+description = "Core spec schema and validation for pyfarm grow specs"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyfarm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
