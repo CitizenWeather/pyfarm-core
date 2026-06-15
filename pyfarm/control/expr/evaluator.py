@@ -16,8 +16,9 @@ used in GrowSpec YAML.
 from __future__ import annotations
 
 import ast
+import io
 import operator
-import re
+import tokenize
 from typing import Any
 
 from pyfarm.control.exceptions import SpecValidationError
@@ -48,7 +49,6 @@ _UNARY_OPS: dict[type, Any] = {
     ast.USub: operator.neg,
 }
 
-_BOOL_WORD_RE = re.compile(r"\b(AND|OR)\b")
 _BOOL_WORD_REPLACEMENTS = {"AND": "and", "OR": "or"}
 
 
@@ -81,15 +81,28 @@ class SafeExpressionEvaluator:
     # -- internals ---------------------------------------------------------
 
     def _parse(self, expression: str) -> ast.Expression:
-        normalised = _BOOL_WORD_RE.sub(
-            lambda m: _BOOL_WORD_REPLACEMENTS[m.group(1)], expression
-        )
         try:
+            normalised = self._normalise_bool_words(expression)
             return ast.parse(normalised, mode="eval")
-        except SyntaxError as exc:
+        except (SyntaxError, tokenize.TokenError) as exc:
             raise SpecValidationError(
                 f"Invalid expression {expression!r}: {exc}"
             ) from exc
+
+    def _normalise_bool_words(self, expression: str) -> str:
+        """Rewrite the ``AND``/``OR`` *tokens* (not substrings) to lowercase.
+
+        Operates on the token stream so that occurrences inside string
+        literals (e.g. ``state == "ON AND OFF"``) are left untouched.
+        """
+        tokens = tokenize.generate_tokens(io.StringIO(expression).readline)
+        rewritten = [
+            (tok.type, _BOOL_WORD_REPLACEMENTS.get(tok.string, tok.string))
+            if tok.type == tokenize.NAME
+            else (tok.type, tok.string)
+            for tok in tokens
+        ]
+        return tokenize.untokenize(rewritten)
 
     def _dotted_name(self, node: ast.AST, expression: str) -> str:
         parts: list[str] = []
@@ -197,7 +210,7 @@ class SafeExpressionEvaluator:
             return _UNARY_OPS[type(node.op)](operand)
         if isinstance(node, (ast.Attribute, ast.Name)):
             dotted = self._dotted_name(node, expression)
-            return self._resolve(dotted, context)
+            return self._resolve(dotted, expression, context)
         if isinstance(node, ast.Constant):
             return node.value
         raise SpecValidationError(
@@ -205,14 +218,19 @@ class SafeExpressionEvaluator:
             f"{type(node).__name__}"
         )
 
-    def _resolve(self, dotted: str, context: dict[str, Any]) -> Any:
+    def _resolve(self, dotted: str, expression: str, context: dict[str, Any]) -> Any:
+        parts = dotted.split(".")
+        if len(parts) == 1:
+            # A bare identifier with no binding (e.g. an enum literal like
+            # `fruiting` in `stage == fruiting`) evaluates to its own name.
+            return context.get(parts[0], parts[0])
+
         value: Any = context
-        for part in dotted.split("."):
+        for part in parts:
             if isinstance(value, dict) and part in value:
                 value = value[part]
             else:
-                # Bare identifiers with no binding (e.g. an enum literal like
-                # `fruiting` in `stage == fruiting`) evaluate to their own
-                # name as a string.
-                return dotted
+                raise SpecValidationError(
+                    f"Cannot evaluate {expression!r}: no value for {dotted!r}"
+                )
         return value

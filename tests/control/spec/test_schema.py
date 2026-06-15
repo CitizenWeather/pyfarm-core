@@ -2,8 +2,10 @@ import pytest
 from pydantic import ValidationError
 
 from pyfarm.control.spec.schema import (
+    ActuatorSpec,
     Duration,
     GrowSpec,
+    LightSetpoint,
     Metadata,
     Setpoints,
     Stage,
@@ -85,3 +87,55 @@ def test_negative_tolerance_rejected() -> None:
     bad_setpoints["humidity_rh"] = {"target": 0.9, "tolerance": -0.1}
     with pytest.raises(ValidationError):
         Setpoints(**bad_setpoints)
+
+
+def test_humidity_rh_out_of_range_rejected() -> None:
+    bad_setpoints = dict(VALID_SETPOINTS)
+    bad_setpoints["humidity_rh"] = {"target": 90, "tolerance": 5}
+    with pytest.raises(ValidationError):
+        Setpoints(**bad_setpoints)
+
+
+def test_light_schedule_must_sum_to_24() -> None:
+    with pytest.raises(ValidationError):
+        LightSetpoint(schedule="12/10")
+
+
+def test_light_schedule_must_match_format() -> None:
+    with pytest.raises(ValidationError):
+        LightSetpoint(schedule="always-on")
+
+
+def test_gpio_out_of_range_rejected() -> None:
+    with pytest.raises(ValidationError):
+        ActuatorSpec(kind="relay", gpio=99)
+
+
+def test_unsupported_spec_version_rejected() -> None:
+    with pytest.raises(ValidationError):
+        GrowSpec(
+            spec_version="2.0",
+            kind="GrowSpec",
+            metadata=VALID_METADATA,
+            stages=[VALID_STAGE],
+        )
+
+
+def test_empty_stages_rejected() -> None:
+    with pytest.raises(ValidationError):
+        GrowSpec(
+            spec_version="1.0",
+            kind="GrowSpec",
+            metadata=VALID_METADATA,
+            stages=[],
+        )
+
+
+def test_duplicate_stage_names_rejected() -> None:
+    with pytest.raises(ValidationError):
+        GrowSpec(
+            spec_version="1.0",
+            kind="GrowSpec",
+            metadata=VALID_METADATA,
+            stages=[VALID_STAGE, VALID_STAGE],
+        )

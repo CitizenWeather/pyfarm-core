@@ -2,10 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from pyfarm.control.spec.exceptions import SpecValidationError
+from pyfarm.control.exceptions import SpecValidationError
 from pyfarm.control.spec.loader import load_spec
-
-FIXTURE_PATH = Path(__file__).resolve().parents[2] / "fixtures" / "oyster_fruiting.pyfarm.yaml"
 
 
 @pytest.fixture(autouse=True)
@@ -14,8 +12,8 @@ def telegram_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "test-chat-id")
 
 
-def test_load_spec_end_to_end() -> None:
-    spec = load_spec(FIXTURE_PATH)
+def test_load_spec_end_to_end(oyster_fruiting_spec_path: Path) -> None:
+    spec = load_spec(oyster_fruiting_spec_path)
 
     assert spec.spec_version == "1.0"
     assert spec.metadata.name == "oyster-coffee-grounds-fruiting"
@@ -29,19 +27,21 @@ def test_load_spec_end_to_end() -> None:
     assert len(spec.alerts) == 3
 
 
-def test_load_spec_interpolates_env_vars() -> None:
-    spec = load_spec(FIXTURE_PATH)
+def test_load_spec_interpolates_env_vars(oyster_fruiting_spec_path: Path) -> None:
+    spec = load_spec(oyster_fruiting_spec_path)
 
     telegram = spec.notifications.channels["telegram"]
     assert telegram["bot_token"] == "test-token"
     assert telegram["chat_id"] == "test-chat-id"
 
 
-def test_load_spec_missing_env_var_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_spec_missing_env_var_raises(
+    monkeypatch: pytest.MonkeyPatch, oyster_fruiting_spec_path: Path
+) -> None:
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
 
     with pytest.raises(SpecValidationError, match="TELEGRAM_BOT_TOKEN"):
-        load_spec(FIXTURE_PATH)
+        load_spec(oyster_fruiting_spec_path)
 
 
 def test_load_spec_missing_file_raises(tmp_path: Path) -> None:

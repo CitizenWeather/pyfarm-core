@@ -1,7 +1,7 @@
 import pytest
 
+from pyfarm.control.exceptions import SpecValidationError
 from pyfarm.control.expr.evaluator import SafeExpressionEvaluator
-from pyfarm.control.spec.exceptions import SpecValidationError
 
 
 @pytest.fixture
@@ -89,3 +89,15 @@ class TestEvaluate:
             evaluator.evaluate("temperature.current < target - tolerance", context)
             is True
         )
+
+    def test_and_inside_string_literal_is_not_rewritten(
+        self, evaluator: SafeExpressionEvaluator
+    ) -> None:
+        context = {"stage": "ON AND OFF"}
+        assert evaluator.evaluate('stage == "ON AND OFF"', context) is True
+
+    def test_missing_dotted_reading_raises(
+        self, evaluator: SafeExpressionEvaluator
+    ) -> None:
+        with pytest.raises(SpecValidationError, match="temperature.current"):
+            evaluator.evaluate("temperature.current > 28", {})

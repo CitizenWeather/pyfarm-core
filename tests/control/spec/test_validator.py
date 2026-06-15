@@ -4,18 +4,18 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pyfarm.control.spec.exceptions import SpecValidationError
+from pyfarm.control.exceptions import SpecValidationError
 from pyfarm.control.spec.schema import GrowSpec
 from pyfarm.control.spec.validator import validate_spec
 
-FIXTURE_PATH = Path(__file__).resolve().parents[2] / "fixtures" / "oyster_fruiting.pyfarm.yaml"
-
 
 @pytest.fixture
-def spec_data(monkeypatch: pytest.MonkeyPatch) -> dict:
+def spec_data(
+    monkeypatch: pytest.MonkeyPatch, oyster_fruiting_spec_path: Path
+) -> dict:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "test-chat-id")
-    raw = FIXTURE_PATH.read_text()
+    raw = oyster_fruiting_spec_path.read_text()
     raw = raw.replace("${TELEGRAM_BOT_TOKEN}", "test-token")
     raw = raw.replace("${TELEGRAM_CHAT_ID}", "test-chat-id")
     return yaml.safe_load(raw)

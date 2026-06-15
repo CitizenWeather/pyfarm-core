@@ -10,14 +10,14 @@ from __future__ import annotations
 import math
 import re
 
+from pyfarm.control.exceptions import SpecValidationError
 from pyfarm.control.expr.evaluator import SafeExpressionEvaluator
-from pyfarm.control.spec.exceptions import SpecValidationError
 from pyfarm.control.spec.schema import GrowSpec, Stage, TemperatureSetpoint
 
 _COMPARISON_THRESHOLD_RE = re.compile(r"^(>=|<=|==|!=|>|<)\s*-?\d+(\.\d+)?$")
 _COMPARISON_PREFIXES = (">=", "<=", "==", "!=", ">", "<")
 
-_KNOWN_CONTROL_NAMES = {"misting", "FAE", "exhaust_fan", "heater", "light", "lighting"}
+_KNOWN_CONTROL_NAMES = {"misting", "FAE", "exhaust_fan", "heater", "light"}
 
 # Namespace available to alert/interlock expressions.
 _BASE_NAMESPACE = {
