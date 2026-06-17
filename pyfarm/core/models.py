@@ -49,3 +49,4 @@ class ActuatorState:
     name: str
     state: bool
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_toggled_at: datetime | None = None
