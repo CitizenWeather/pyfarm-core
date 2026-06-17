@@ -20,7 +20,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["pyfarm"]
+packages = ["src/pyfarm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

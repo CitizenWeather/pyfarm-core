@@ -2,6 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../pyfarm-cli/.idea/pyfarm-cli.iml" filepath="$PROJECT_DIR$/../pyfarm-cli/.idea/pyfarm-cli.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../pyfarm-control/.idea/pyfarm-control.iml" filepath="$PROJECT_DIR$/../pyfarm-control/.idea/pyfarm-control.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/pyfarm-core.iml" filepath="$PROJECT_DIR$/.idea/pyfarm-core.iml" />
     </modules>
   </component>
