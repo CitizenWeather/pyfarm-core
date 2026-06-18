@@ -3,9 +3,27 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from pyfarm.control.spec.base import (
+    ActuatorSafety,
+    BaseActuatorSpec,
+    BaseSpec,
+    BaseSpecMetadata,
+    BaseStage,
+    DurationSpec,
+    ExitConditionSpec,
+)
+
+# Re-export for backward compatibility
+__all__ = [
+    "ActuatorSafety", "ActuatorSpec", "AlertRule", "Duration",
+    "ExitCondition", "GrowSpec", "LightSetpoint", "Metadata",
+    "NotificationsConfig", "RatioSetpoint", "Setpoints", "Stage",
+    "StrictModel", "TemperatureSetpoint", "ToleranceSetpoint", "VPDConstraint",
+]
 
 _SCHEDULE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})$")
 
@@ -14,31 +32,18 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class Metadata(StrictModel):
+# Aliases kept for existing callers
+Duration = DurationSpec
+ExitCondition = ExitConditionSpec
+
+
+class Metadata(BaseSpecMetadata):
+    model_config = ConfigDict(extra="forbid")
     name: str
     species: str
     substrate: str
     author: str
     registry: str
-
-
-class Duration(StrictModel):
-    min_days: int
-    max_days: int
-
-    @model_validator(mode="after")
-    def _check_range(self) -> "Duration":
-        if self.max_days < self.min_days:
-            raise ValueError(
-                f"max_days ({self.max_days}) must be >= min_days "
-                f"({self.min_days})"
-            )
-        return self
-
-
-class ExitCondition(StrictModel):
-    metric: str
-    threshold: str
 
 
 class ToleranceSetpoint(StrictModel):
@@ -57,8 +62,6 @@ class TemperatureSetpoint(ToleranceSetpoint):
 
 
 class RatioSetpoint(ToleranceSetpoint):
-    """A setpoint expressed as a 0-1 ratio, e.g. relative humidity."""
-
     @model_validator(mode="after")
     def _check_ratio(self) -> "RatioSetpoint":
         if not 0 <= self.target <= 1:
@@ -102,10 +105,8 @@ class VPDConstraint(StrictModel):
     tolerance: float = 0.0
 
 
-class Stage(StrictModel):
-    name: str
-    duration: Duration
-    exit_condition: ExitCondition
+class Stage(BaseStage):
+    model_config = ConfigDict(extra="forbid")
     setpoints: Setpoints
     controls_disabled: list[str] = []
     vpd: VPDConstraint | None = None
@@ -119,25 +120,21 @@ class AlertRule(StrictModel):
     cooldown_minutes: int = 0
 
 
-class ActuatorSafety(StrictModel):
-    max_on_seconds: int | None = None
-    min_off_seconds: int | None = None
-    max_on_minutes: int | None = None
-
-
-class ActuatorSpec(StrictModel):
+class ActuatorSpec(BaseActuatorSpec):
+    model_config = ConfigDict(extra="forbid")
     kind: Literal["relay", "pwm", "mqtt"]
     gpio: int | None = Field(default=None, ge=0, le=27)
     pwm: bool = False
     interlock: str | None = None
-    safety: ActuatorSafety = ActuatorSafety()
+    safety: ActuatorSafety = Field(default_factory=ActuatorSafety)
 
 
 class NotificationsConfig(StrictModel):
-    channels: dict[str, dict[str, Any]] = {}
+    channels: dict[str, dict] = {}
 
 
-class GrowSpec(StrictModel):
+class GrowSpec(BaseSpec):
+    model_config = ConfigDict(extra="forbid")
     spec_version: Literal["1.0"]
     kind: Literal["GrowSpec"]
     metadata: Metadata

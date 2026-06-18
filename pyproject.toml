@@ -5,18 +5,21 @@ build-backend = "hatchling.build"
 [project]
 name = "pyfarm-core"
 version = "0.1.0"
-description = "Core spec schema and validation for pyfarm grow specs"
+description = "Shared engine, EventBus, and base spec primitives for the pyfarm ecosystem"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2",
     "pyyaml>=6",
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7",
+    "pytest-asyncio>=0.21",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -24,3 +27,4 @@ packages = ["src/pyfarm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"

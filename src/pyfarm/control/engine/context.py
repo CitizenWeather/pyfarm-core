@@ -1,0 +1,140 @@
+"""The live state of a running control loop. Domain-agnostic."""
+
+from __future__ import annotations
+
+import uuid
+from collections import deque
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Callable, Deque
+
+from pyfarm.control.spec.base import BaseSpec, BaseStage
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+@dataclass
+class SensorReading:
+    """A single sensor sample."""
+
+    value: float
+    unit: str
+    timestamp: datetime = field(default_factory=_now)
+
+    def flatline_minutes(self, *, value_changed_at: datetime, now: datetime | None = None) -> float:
+        now = now or _now()
+        return max(0.0, (now - value_changed_at).total_seconds() / 60.0)
+
+
+@dataclass
+class ActuatorState:
+    """What the engine last commanded an actuator to do."""
+
+    name: str
+    on: bool = False
+    command: Any = False
+    last_changed: datetime = field(default_factory=_now)
+
+    def seconds_in_state(self, now: datetime | None = None) -> float:
+        now = now or _now()
+        return max(0.0, (now - self.last_changed).total_seconds())
+
+
+@dataclass
+class ControlEvent:
+    """A timestamped record of something the engine did or noticed."""
+
+    kind: str
+    message: str
+    timestamp: datetime = field(default_factory=_now)
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ControlContext:
+    run_id: str
+    spec: BaseSpec
+    current_stage_index: int = 0
+    stage_entered_at: datetime = field(default_factory=_now)
+
+    readings: dict[str, SensorReading] = field(default_factory=dict)
+    derived: dict[str, float] = field(default_factory=dict)
+    manual: dict[str, float | str] = field(default_factory=dict)
+    actuator_states: dict[str, ActuatorState] = field(default_factory=dict)
+    events: Deque[ControlEvent] = field(default_factory=lambda: deque(maxlen=1000))
+
+    _value_changed_at: dict[str, datetime] = field(default_factory=dict)
+    _event_listeners: list[Callable[[ControlEvent], None]] = field(
+        default_factory=list, init=False, repr=False
+    )
+
+    @classmethod
+    def new(cls, spec: BaseSpec, run_id: str | None = None) -> "ControlContext":
+        return cls(run_id=run_id or uuid.uuid4().hex, spec=spec)
+
+    @property
+    def current_stage(self) -> BaseStage:
+        return self.spec.stages[self.current_stage_index]
+
+    @property
+    def is_final_stage(self) -> bool:
+        return self.current_stage_index >= len(self.spec.stages) - 1
+
+    def add_event_listener(self, fn: Callable[[ControlEvent], None]) -> None:
+        self._event_listeners.append(fn)
+
+    def record_reading(self, metric: str, reading: SensorReading) -> None:
+        previous = self.readings.get(metric)
+        if previous is None or previous.value != reading.value:
+            self._value_changed_at[metric] = reading.timestamp
+        self.readings[metric] = reading
+
+    def log_event(self, kind: str, message: str, **data: Any) -> ControlEvent:
+        event = ControlEvent(kind=kind, message=message, data=data)
+        self.events.append(event)
+        for fn in self._event_listeners:
+            fn(event)
+        return event
+
+    def get_metric(self, dotted: str) -> Any:
+        flat = self.as_flat_dict()
+        value: Any = flat
+        for part in dotted.split("."):
+            if isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                return None
+        return value
+
+    def as_flat_dict(self, now: datetime | None = None) -> dict[str, Any]:
+        now = now or _now()
+        flat: dict[str, Any] = {}
+
+        for metric, reading in self.readings.items():
+            flat.setdefault(metric, {})["current"] = reading.value
+
+        for key, value in self.derived.items():
+            flat.setdefault(key, {})["current"] = value
+
+        sensor: dict[str, Any] = {}
+        for metric, reading in self.readings.items():
+            changed_at = self._value_changed_at.get(metric, reading.timestamp)
+            sensor[metric] = {
+                "current": reading.value,
+                "flatline_minutes": reading.flatline_minutes(
+                    value_changed_at=changed_at, now=now
+                ),
+            }
+        flat["sensor"] = sensor
+
+        for dotted, value in self.manual.items():
+            target = flat
+            parts = dotted.split(".")
+            for part in parts[:-1]:
+                target = target.setdefault(part, {})
+            target[parts[-1]] = value
+
+        flat["stage"] = self.current_stage.name
+        return flat
