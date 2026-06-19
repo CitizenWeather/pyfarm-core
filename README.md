@@ -4,26 +4,26 @@ Core domain models and event infrastructure for PyFarm.
 
 ## What's here
 
+- **`pyfarm.core.models`** — the canonical domain value types every PyFarm package
+  speaks: `SensorReading`, `ActuatorState`, `ControlEvent`, plus the `EventKind` and
+  `Unit` enums.
+- **`pyfarm.core.events`** — event distribution: `EventBus` (sync-emit, async-fan-out)
+  and the `EventSink` protocol for subscribers (persistence, notifications).
+- **`pyfarm.core.sensor` / `pyfarm.core.actuator`** — the `Sensor` and `Actuator`
+  contracts the engine reads from and commands. Real hardware and simulated/replay
+  leaves implement the same interface, so one runner can drive a live tent or a
+  recording. (Concrete drivers ship in `pyfarm-control` today; `pyfarm-iot` later.)
+- **`pyfarm.core.storage`** — the `SnapshotStore` persistence abstraction (+ `NullStore`).
+  Concrete stores that know the full `ControlContext` (`JsonSnapshotStore`, `SQLiteStore`)
+  live in `pyfarm-control` and subclass it.
+- **`pyfarm.core.config`** — `${VAR}` interpolation (the spec loader delegates to it) and
+  named environment profiles for secrets/credentials.
+- **`pyfarm.core.errors`** — the runtime error hierarchy (`ControlError`,
+  `SensorReadError`, `ReplayExhausted`).
 - `pyfarm.control.spec` — Pydantic models for the GrowSpec YAML format, a YAML loader
-  with environment-variable interpolation, and a cross-field validator (VPD consistency,
-  exit-condition thresholds, alert/interlock expression safety, etc.)
-- `pyfarm.control.expr` — `SafeExpressionEvaluator`, an AST-walking evaluator used to
-  validate and evaluate alert and interlock expressions without `eval()`/`exec()`.
-- `pyfarm.control.sensors` / `pyfarm.control.actuators` — the `Sensor` and `Actuator`
-  interfaces the engine reads from and commands. Real hardware and simulated leaves
-  implement the same interface, so one runner can drive a live tent or a recording.
-- `pyfarm.control.replay` — `ReplaySensor` replays a recorded series of readings (or a
-  CSV) and `LoggingActuator` records what the engine *would* have done. Together they
-  let the full control loop run with no hardware — for tests, CI, and contributor demos.
-- **`pyfarm.core.models`** — Domain model types used across PyFarm
-  - `SensorReading` - timestamped sensor value with metric name and unit
-  - `ControlEvent` - log entry for control loop events
-  - `ActuatorState` - current state of an actuator
-  - `EventKind` and `Unit` - enums for event types and sensor units
-  
-- **`pyfarm.core.events`** — Event distribution infrastructure
-  - `EventBus` - sync-emit, async-fan-out event spine
-  - `EventSink` - protocol for event subscribers (e.g., persistence, notifications)
+  with environment-variable interpolation, and a cross-field validator.
+- `pyfarm.control.expr` — `SafeExpressionEvaluator`, an AST-walking evaluator for alert
+  and interlock expressions without `eval()`/`exec()`.
 
 ## Usage
 

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pyfarm-core"
 version = "0.1.0"
-description = "Core spec schema and validation for pyfarm grow specs"
+description = "Core domain models, contracts, config and spec validation for PyFarm"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

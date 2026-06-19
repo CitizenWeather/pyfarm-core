@@ -55,6 +55,26 @@ def validate_spec(spec: GrowSpec) -> None:
                     f"Actuator {name!r}: {exc}"
                 ) from exc
 
+    for name, sensor in spec.sensors.items():
+        _check_sensor(name, sensor)
+
+
+def _check_sensor(name: str, sensor) -> None:
+    """Validate that a sensor declaration has the fields its kind requires."""
+    kind = sensor.kind
+    if kind in ("dht22_temp", "dht22_humidity", "analog") and sensor.gpio is None:
+        raise SpecValidationError(
+            f"Sensor {name!r}: kind {kind!r} requires a 'gpio' pin"
+        )
+    if kind == "fake" and sensor.value is None:
+        raise SpecValidationError(
+            f"Sensor {name!r}: kind 'fake' requires a constant 'value'"
+        )
+    if kind == "replay" and not sensor.csv:
+        raise SpecValidationError(
+            f"Sensor {name!r}: kind 'replay' requires a 'csv' path"
+        )
+
 
 def _build_namespace(spec: GrowSpec) -> set[str]:
     namespace = set(_BASE_NAMESPACE)
