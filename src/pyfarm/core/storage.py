@@ -117,6 +117,49 @@ class NullBackend:
         pass
 
 
+def get_backend(
+    backend: str | None = None,
+    db_path: str | None = None,
+) -> StorageBackend:
+    """Return a configured :class:`StorageBackend` instance.
+
+    This is the canonical factory for the pyfarm storage layer (consolidated
+    into pyfarm-core). Consumers such as pyfarm-analytics and pyfarm-scheduler
+    obtain a backend through this function rather than constructing one directly.
+
+    Selection order (highest priority first):
+
+    1. The explicit ``backend`` argument.
+    2. The ``PYFARM_STORAGE_BACKEND`` environment variable.
+    3. Default: ``"sqlite"``.
+
+    Args:
+        backend: ``"sqlite"`` or ``"null"``. If ``None``, read from the
+            environment / default.
+        db_path: SQLite database path. If ``None``, read from
+            ``PYFARM_DB_PATH`` (default ``"pyfarm.db"``). Ignored for ``null``.
+
+    Returns:
+        A backend implementing the :class:`StorageBackend` protocol. SQLite
+        backends connect lazily on first use, so no ``await`` is required here.
+    """
+    import os
+
+    choice = (backend or os.environ.get("PYFARM_STORAGE_BACKEND") or "sqlite").lower()
+
+    if choice == "null":
+        return NullBackend()
+    if choice == "sqlite":
+        from pyfarm.core.storage_impl import SQLiteBackend
+
+        path = db_path or os.environ.get("PYFARM_DB_PATH") or "pyfarm.db"
+        return SQLiteBackend(path)
+
+    raise ValueError(
+        f"Unknown storage backend {choice!r}. Expected 'sqlite' or 'null'."
+    )
+
+
 # Deprecated: kept for back-compat (old repos might reference this type)
 class SnapshotStore:
     """Deprecated. Use StorageBackend instead."""
