@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="VcsDirectoryMappings">
-    <mapping directory="$PROJECT_DIR$/../pyfarm-cli" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/../pyfarm-control" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/api" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/auth" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/cli" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/control" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/deploy" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/observability" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/protocols" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/scheduling" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/sdk" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../PyFarm Project/repos/storage" vcs="Git" />
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
   </component>
 </project>
