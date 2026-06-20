@@ -47,6 +47,7 @@ class SensorReading:
     unit: str = ""
     sensor_id: str = ""
     error: Optional[str] = None
+    stale: bool = False  # True when the reading is older than its freshness window
 
     def __post_init__(self):
         if not self.metric:
