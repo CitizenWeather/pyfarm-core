@@ -5,10 +5,16 @@ from datetime import datetime, timezone
 
 import pytest
 
-from pyfarm.core.models import EventType, SensorReading, ActuatorState, ControlEvent
+from pyfarm.core.models import (
+    EventType,
+    EventKind,
+    SensorReading,
+    ActuatorState,
+    ControlEvent,
+)
 from pyfarm.core.actuator import Command, Actuator
 from pyfarm.core.sensor import Sensor
-from pyfarm.core.storage import NullStore, SnapshotStore
+from pyfarm.core.storage import NullBackend, StorageBackend
 
 
 class TestEventType:
@@ -61,24 +67,17 @@ class TestActuatorState:
     """Test ActuatorState dataclass."""
 
     def test_actuator_state_creation(self):
-        state = ActuatorState(
-            actuator_id="heater-1",
-            command="set_temperature",
-            value=25.0
-        )
-        assert state.actuator_id == "heater-1"
-        assert state.command == "set_temperature"
-        assert state.value == 25.0
+        state = ActuatorState(name="heater-1", state=True)
+        assert state.name == "heater-1"
+        assert state.state is True
         assert state.timestamp is not None
+        assert state.last_toggled_at is None
 
-    def test_actuator_state_with_error(self):
-        state = ActuatorState(
-            actuator_id="heater-1",
-            command="set_temperature",
-            value=25.0,
-            error="Power failure"
-        )
-        assert state.error == "Power failure"
+    def test_actuator_state_off(self):
+        toggled = datetime.now(timezone.utc)
+        state = ActuatorState(name="fan-1", state=False, last_toggled_at=toggled)
+        assert state.state is False
+        assert state.last_toggled_at == toggled
 
 
 class TestControlEvent:
@@ -86,34 +85,24 @@ class TestControlEvent:
 
     def test_control_event_creation(self):
         event = ControlEvent(
-            event_type=EventType.SENSOR_READING,
-            grow_id="grow-1",
-            metric="temperature",
-            value=22.5
+            kind=EventKind.SYSTEM,
+            message="runner started",
+            data={"grow_id": "grow-1"},
         )
-        assert event.event_type == EventType.SENSOR_READING
-        assert event.grow_id == "grow-1"
-        assert event.metric == "temperature"
-        assert event.value == 22.5
-        assert event.severity == "info"
+        assert event.kind == EventKind.SYSTEM
+        assert event.message == "runner started"
+        assert event.data == {"grow_id": "grow-1"}
+        assert event.timestamp is not None
 
-    def test_control_event_with_string_event_type(self):
-        event = ControlEvent(
-            event_type="alert",
-            grow_id="grow-1",
-            message="Temperature out of range"
-        )
-        assert event.event_type == EventType.ALERT
-        assert isinstance(event.event_type, EventType)
+    def test_control_event_with_string_kind(self):
+        event = ControlEvent(kind="alert_fired", message="out of range")
+        assert event.kind == EventKind.ALERT_FIRED
+        assert isinstance(event.kind, EventKind)
 
-    def test_control_event_severity_levels(self):
-        severities = ["info", "warning", "alert", "critical"]
-        for sev in severities:
-            event = ControlEvent(
-                event_type=EventType.ALERT,
-                severity=sev
-            )
-            assert event.severity == sev
+    def test_control_event_defaults(self):
+        event = ControlEvent(kind=EventKind.SENSOR_FAILURE)
+        assert event.message == ""
+        assert event.data == {}
 
 
 class TestCommandDataclass:
@@ -180,64 +169,88 @@ class TestSensorInterface:
         broken_sensor = MockSensor("temp-1", "temperature", "°C", healthy=False)
         assert await broken_sensor.check_health() is False
 
+    def test_sensor_not_exhausted_by_default(self):
+        sensor = MockSensor("temp-1", "temperature", "°C")
+        assert sensor.exhausted is False
+
 
 class MockActuator(Actuator):
-    """Mock actuator for testing."""
+    """Mock actuator for testing the on()/off() canonical interface."""
 
     def __init__(self, actuator_id: str):
         super().__init__(actuator_id)
-        self.state = "off"
-        self.value = 0.0
+        self.is_on = False
 
-    async def execute(self, command: Command):
-        self.last_command = command
-        self.state = command.command
-        self.value = command.value
-        return True
+    async def on(self):
+        self.is_on = True
 
-    async def get_state(self):
-        return {"state": self.state, "value": self.value}
+    async def off(self):
+        self.is_on = False
 
 
 class TestActuatorInterface:
     """Test Actuator abstract class."""
 
     @pytest.mark.asyncio
-    async def test_actuator_execute(self):
+    async def test_actuator_on_off(self):
         actuator = MockActuator("heater-1")
-        cmd = Command(actuator_id="heater-1", command="set_temp", value=25.0)
+        assert actuator.is_on is False
+        await actuator.on()
+        assert actuator.is_on is True
+        await actuator.off()
+        assert actuator.is_on is False
+
+    @pytest.mark.asyncio
+    async def test_actuator_execute_delegates_to_on_off(self):
+        actuator = MockActuator("fan-1")
+        cmd = Command(actuator_id="fan-1", command="on", value=1.0)
         result = await actuator.execute(cmd)
         assert result is True
+        assert actuator.is_on is True
         assert actuator.last_command == cmd
+
+        await actuator.execute(Command(actuator_id="fan-1", command="off"))
+        assert actuator.is_on is False
 
     @pytest.mark.asyncio
     async def test_actuator_get_state(self):
         actuator = MockActuator("fan-1")
-        cmd = Command(actuator_id="fan-1", command="set_speed", value=75.0)
-        await actuator.execute(cmd)
         state = await actuator.get_state()
-        assert state["state"] == "set_speed"
-        assert state["value"] == 75.0
+        assert state["actuator_id"] == "fan-1"
 
 
-class TestNullStore:
-    """Test NullStore implementation."""
+class TestNullBackend:
+    """Test NullBackend implementation of the StorageBackend protocol."""
 
-    def test_null_store_save(self):
-        store = NullStore()
-        # Should not raise any exception
-        store.save_snapshot("grow-1", {"data": "test"})
+    @pytest.mark.asyncio
+    async def test_null_backend_write_snapshot(self):
+        backend = NullBackend()
+        # Should not raise
+        await backend.write_snapshot({"data": "test"})
 
-    def test_null_store_load(self):
-        store = NullStore()
-        result = store.load_snapshot("grow-1")
-        assert result is None
+    @pytest.mark.asyncio
+    async def test_null_backend_get_latest_snapshot(self):
+        backend = NullBackend()
+        assert await backend.get_latest_snapshot("grow-1") is None
 
-    def test_null_store_delete(self):
-        store = NullStore()
-        # Should not raise any exception
-        store.delete_snapshot("grow-1")
+    @pytest.mark.asyncio
+    async def test_null_backend_readings_empty(self):
+        backend = NullBackend()
+        await backend.insert_sensor_reading(
+            SensorReading(metric="temperature", value=20.0, sensor_id="temp-1")
+        )
+        readings = await backend.get_readings(
+            "temp-1",
+            datetime(2020, 1, 1, tzinfo=timezone.utc),
+            datetime(2030, 1, 1, tzinfo=timezone.utc),
+        )
+        assert readings == []
 
-    def test_null_store_is_snapshot_store(self):
-        store = NullStore()
-        assert isinstance(store, SnapshotStore)
+    @pytest.mark.asyncio
+    async def test_null_backend_close(self):
+        backend = NullBackend()
+        await backend.close()
+
+    def test_null_backend_satisfies_protocol(self):
+        backend = NullBackend()
+        assert isinstance(backend, StorageBackend)

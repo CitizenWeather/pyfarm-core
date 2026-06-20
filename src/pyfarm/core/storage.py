@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from pyfarm.core.models import SensorReading
 
 
+@runtime_checkable
 class StorageBackend(Protocol):
     """
     Async persistence interface for pyfarm.
