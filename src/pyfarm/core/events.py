@@ -1,3 +1,5 @@
+"""Event distribution infrastructure: a sync-emit / async-fan-out spine."""
+
 from __future__ import annotations
 
 import sys

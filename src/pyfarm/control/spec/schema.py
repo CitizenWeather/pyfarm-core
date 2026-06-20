@@ -133,6 +133,34 @@ class ActuatorSpec(StrictModel):
     safety: ActuatorSafety = ActuatorSafety()
 
 
+SensorKind = Literal["dht22_temp", "dht22_humidity", "analog", "fake", "replay"]
+
+
+class SensorSpec(StrictModel):
+    """Declares one sensor the engine should construct and poll.
+
+    ``metric`` is the namespaced quantity the reading is recorded under
+    (``temperature``, ``humidity_rh``, ``co2_ppm``, ...). The remaining fields
+    are kind-specific:
+
+    * ``dht22_temp`` / ``dht22_humidity`` — require ``gpio``.
+    * ``analog`` — requires ``gpio`` (ADC channel); ``scale``/``offset`` convert
+      the raw 0–1 reading to engineering units.
+    * ``fake`` — requires ``value`` (a constant, for demos/bring-up).
+    * ``replay`` — requires ``csv``; ``column`` defaults to ``metric``.
+    """
+
+    kind: SensorKind
+    metric: str
+    unit: str = ""
+    gpio: int | None = Field(default=None, ge=0, le=27)
+    value: float | None = None
+    scale: float = 1.0
+    offset: float = 0.0
+    csv: str | None = None
+    column: str | None = None
+
+
 class NotificationsConfig(StrictModel):
     channels: dict[str, dict[str, Any]] = {}
 
@@ -143,6 +171,7 @@ class GrowSpec(StrictModel):
     metadata: Metadata
     stages: list[Stage]
     alerts: list[AlertRule] = []
+    sensors: dict[str, SensorSpec] = {}
     actuators: dict[str, ActuatorSpec] = {}
     notifications: NotificationsConfig | None = None
 
