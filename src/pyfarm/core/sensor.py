@@ -26,3 +26,11 @@ class Sensor(ABC):
     async def check_health(self) -> bool:
         """Check if sensor is healthy. Return True if healthy."""
         pass
+
+    @property
+    def exhausted(self) -> bool:
+        """
+        Whether the sensor has no more data (e.g., replay sensor at end of CSV).
+        Default: False. Override in replay/file-backed sensors.
+        """
+        return False

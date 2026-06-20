@@ -8,6 +8,9 @@ from pyfarm.core.models import (
     SensorReading,
     Unit,
 )
+from pyfarm.core.sensor import Sensor
+from pyfarm.core.actuator import Actuator, Command
+from pyfarm.core.storage import StorageBackend, NullBackend
 
 __version__ = "0.1.0"
 
@@ -18,4 +21,9 @@ __all__ = [
     "EventType",
     "SensorReading",
     "Unit",
+    "Sensor",
+    "Actuator",
+    "Command",
+    "StorageBackend",
+    "NullBackend",
 ]
