@@ -9,12 +9,33 @@ from typing import Any, Optional
 
 
 class EventType(str, Enum):
-    """Event type enumeration."""
+    """Event type enumeration (control event categorization)."""
     SENSOR_READING = "sensor_reading"
     ACTUATOR_COMMAND = "actuator_command"
     ALERT = "alert"
     STAGE_TRANSITION = "stage_transition"
     HEALTH_CHECK = "health_check"
+
+
+class EventKind(str, Enum):
+    """Event kind enumeration (operational event types)."""
+    SYSTEM = "system"
+    ALERT_FIRED = "alert_fired"
+    SENSOR_FAILURE = "sensor_failure"
+    STAGE_TRANSITION = "stage_transition"
+
+
+class Unit(str, Enum):
+    """Measurement unit enumeration."""
+    CELSIUS = "°C"
+    FAHRENHEIT = "°F"
+    PERCENT = "%"
+    PPM = "ppm"
+    EC = "mS/cm"
+    PH = "pH"
+    LUX = "lux"
+    PPFD = "μmol/m²/s"
+    UNITLESS = ""
 
 
 @dataclass
@@ -35,25 +56,20 @@ class SensorReading:
 @dataclass
 class ActuatorState:
     """State of an actuator."""
-    actuator_id: str
-    command: str
-    value: float
+    name: str
+    state: bool
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    error: Optional[str] = None
+    last_toggled_at: Optional[datetime] = None
 
 
 @dataclass
 class ControlEvent:
     """An event in the control loop lifecycle."""
-    event_type: EventType
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    grow_id: str = ""
-    stage_name: str = ""
-    metric: str = ""
-    value: Any = None
+    kind: EventKind
     message: str = ""
-    severity: str = "info"  # info, warning, alert, critical
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    data: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
-        if isinstance(self.event_type, str):
-            self.event_type = EventType(self.event_type)
+        if isinstance(self.kind, str):
+            self.kind = EventKind(self.kind)
